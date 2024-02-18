@@ -1,4 +1,4 @@
-# FT6206 simple driver.
+# FT6206/6306 simple driver.
 # Copyright (C) 2024 Salvatore Sanfilippo -- All Rights Reserved
 # This code is released under the MIT license
 # https://opensource.org/license/mit/
@@ -11,10 +11,21 @@ REG_GEST_ID = const(0x01)
 REG_TD_STATUS = const(0x02)
 
 class FT6206:
-    def __init__(self,i2c,*,interrupt_pin=None):
+    def __init__(self,i2c,*,interrupt_pin=None, callback=None):
         self.myaddr = 0x38  # I2C chip default address.
         self.i2c = i2c
         print("FT6206: scan i2c bus:", [hex(x) for x in i2c.scan()])
+        self.callback = callback
+        self.interrupt_pin = interrupt_pin
+        self.interrupt_pin.irq(handler=self.irq, trigger=Pin.IRQ_FALLING)
+
+    def irq(self,pin):
+        if self.callback == None:
+            printf("FT6206: not handled IRQ. Pass 'callback' during initialization")
+            return
+        data = self.get_touch_coords()
+        if data == None: return
+        self.callback(data)
 
     # Return the single byte at the specified register
     def get_reg(self, register, count=1):
@@ -25,7 +36,7 @@ class FT6206:
 
     # Return the number of touches on the screen.
     # The function returns 0 if no finger is on the screen.
-    def get_touch_points(self):
+    def get_touch_count(self):
         return self.get_reg(REG_TD_STATUS) & 7
 
     # Return coordiantes and information about touch point "id"
@@ -47,7 +58,7 @@ class FT6206:
     # Return an array of touches (1 or 2 touches) or None if no
     # touch is present on the display right now.
     def get_touch_coords(self):
-        touches = self.get_touch_points()
+        touches = self.get_touch_count()
         if touches == 0: return None
 
         touch_data = []
@@ -65,11 +76,22 @@ class FT6206:
 
 # Example usage and quick test to see if your device is working.
 if  __name__ == "__main__":
-    from machine import SoftI2C
+    from machine import SoftI2C, Pin
     import time
 
+    # This example can use the IRQ or just polling.
+    # By default the IRQ usage is demostrated.
+    use_irq = True
+
     i2c = SoftI2C(scl=40,sda=39)
-    ft = FT6206(i2c,interrupt_pin=16)
-    while True:
-        print(ft.get_touch_coords())
-        time.sleep(0.1)
+    if use_irq:
+        def data_available(data):
+            print(data)
+
+        ft = FT6206(i2c,interrupt_pin=Pin(16,Pin.IN),callback=data_available)
+        while True: time.sleep(1)
+    else:
+        ft = FT6206(i2c)
+        while True:
+            print(ft.get_touch_coords())
+            time.sleep(1)

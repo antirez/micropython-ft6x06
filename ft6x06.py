@@ -6,6 +6,8 @@
 # Written reading the specification at:
 # https://www.displayfuture.com/Display/datasheet/controller/FT6206.pdf
 
+from machine import Pin
+
 REG_DEV_MODE = const(0x00)
 REG_GEST_ID = const(0x01)
 REG_TD_STATUS = const(0x02)

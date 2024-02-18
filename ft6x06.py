@@ -15,6 +15,12 @@ REG_TD_STATUS = const(0x02)
 class FT6206:
     def __init__(self,i2c,*,interrupt_pin=None, callback=None):
         self.myaddr = 0x38  # I2C chip default address.
+        self.gestures = {0x10: "move_up",
+                         0x14: "move_right",
+                         0x18: "move_down",
+                         0x1c: "move_left",
+                         0x48: "zoom_in",
+                         0x49: "zoom_out"}
         self.i2c = i2c
         print("FT6206: scan i2c bus:", [hex(x) for x in i2c.scan()])
         self.callback = callback
@@ -27,7 +33,7 @@ class FT6206:
             return
         data = self.get_touch_coords()
         if data == None: return
-        self.callback(data)
+        self.callback(data,self.get_gesture())
 
     # Return the single byte at the specified register
     def get_reg(self, register, count=1):
@@ -40,6 +46,15 @@ class FT6206:
     # The function returns 0 if no finger is on the screen.
     def get_touch_count(self):
         return self.get_reg(REG_TD_STATUS) & 7
+
+    # Return detected gesture as string (see self.gestures) or
+    # None if no valid gesture was detected.
+    def get_gesture(self):
+        gest_id = self.get_reg(REG_GEST_ID)
+        print(gest_id)
+        if gest_id == 0 or gest_id not in self.gestures:
+            return None
+        return self.gestures[gest_id]
 
     # Return coordiantes and information about touch point "id"
     # The returned data is a tuple with:
@@ -87,8 +102,9 @@ if  __name__ == "__main__":
 
     i2c = SoftI2C(scl=40,sda=39)
     if use_irq:
-        def data_available(data):
+        def data_available(data,gesture):
             print(data)
+            if gesture: print("Gesture:", gesture)
 
         ft = FT6206(i2c,interrupt_pin=Pin(16,Pin.IN),callback=data_available)
         while True: time.sleep(1)

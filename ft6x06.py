@@ -18,8 +18,9 @@ class FT6206:
         self.i2c = i2c
         print("FT6206: scan i2c bus:", [hex(x) for x in i2c.scan()])
         self.callback = callback
-        self.interrupt_pin = interrupt_pin
-        self.interrupt_pin.irq(handler=self.irq, trigger=Pin.IRQ_FALLING)
+        if interrupt_pin != None:
+            self.interrupt_pin = interrupt_pin
+            self.interrupt_pin.irq(handler=self.irq, trigger=Pin.IRQ_FALLING)
 
     def irq(self,pin):
         if self.callback == None:
